@@ -6,6 +6,6 @@ python-multipart>=0.0.12
 # ML inference — Python 3.14 compatible (ONNX Runtime, no TensorFlow)
 insightface>=0.7.3       # ArcFace 512-d face embeddings
 onnxruntime>=1.20.0      # CPU inference backend
-opencv-python>=4.10.0
+opencv-python-headless>=4.10.0
 numpy>=1.26.0
 Pillow>=11.0.0
