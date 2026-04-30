@@ -5,7 +5,7 @@ const BLINK_FALLBACK   = 0.24   // fallback antes de calibración (más alto = m
 const BLINK_RATIO      = 0.75   // umbral dinámico = baseline * 0.75 (más generoso en móvil)
 const BLINK_FLOOR      = 0.17   // mínimo absoluto
 const BLINK_CEIL       = 0.28   // máximo absoluto
-const FRAMES_CLOSE     = 2      // frames "cerrado" (bajado de 3 para móvil)
+const FRAMES_CLOSE     = 1      // 1 frame basta — a 10fps móvil un parpadeo solo genera 1-2 frames
 const FRAMES_OPEN      = 1      // frames "abierto" para completar ciclo (bajado de 2)
 const BLINK_COOLDOWN   = 15     // frames de espera tras parpadeo exitoso (bajado de 25)
 const CALIBRATION_FRAMES = 45   // frames para calcular baseline personal
@@ -140,19 +140,23 @@ export function useLiveness({ onComplete } = {}) {
 
   // Infrastructure
   const faceMeshRef      = useRef(null)
+  const initPromiseRef   = useRef(null)    // evita race condition al cargar MediaPipe
   const isPreviewModeRef = useRef(false)   // true = solo dibuja, no avanza desafíos
   const meshConstantsRef = useRef(null)
   const lastFrameTimeRef = useRef(Date.now())
   const fpsRef           = useRef(0)
   const videoRef         = useRef(null)
   const canvasRef        = useRef(null)
+  const calibTimerRef    = useRef(null)    // timeout de calibración de 10s
 
   const currentChallenge = CHALLENGES[challengeIndex]
 
   // ── initFaceMesh ──────────────────────────────────────────────────────────
   const initFaceMesh = useCallback(async () => {
-    // Idempotente: si ya existe una instancia la reutiliza (preview → liveness)
-    if (faceMeshRef.current) return true
+    if (faceMeshRef.current) return true           // ya inicializado
+    if (initPromiseRef.current) return initPromiseRef.current  // carga en progreso
+
+    initPromiseRef.current = (async () => {
     try {
       const mod = await import('@mediapipe/face_mesh')
       const FaceMeshCtor =
@@ -182,11 +186,15 @@ export function useLiveness({ onComplete } = {}) {
       })
       fm.onResults(handleResults)
       faceMeshRef.current = fm
+      initPromiseRef.current = null
       return true
     } catch (e) {
+      initPromiseRef.current = null
       console.error('[useLiveness] MediaPipe init failed:', e)
       return false
     }
+    })()
+    return initPromiseRef.current
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -267,7 +275,8 @@ export function useLiveness({ onComplete } = {}) {
             setCalibrated(true)
           }
         }
-        passed = Math.abs(yaw) < 10
+        // center solo pasa cuando la calibración está completa
+        passed = calibratedRef.current && Math.abs(yaw) < 10
 
       } else if (challenge.check === 'blink') {
         // Dynamic threshold based on personal baseline
@@ -402,6 +411,16 @@ export function useLiveness({ onComplete } = {}) {
     const ok = await initFaceMesh()
     if (!ok) { setStatus('failed'); return }
 
+    // Fallback: si tras 10s el usuario no completó calibración, usar baseline por defecto
+    calibTimerRef.current = setTimeout(() => {
+      if (!calibratedRef.current) {
+        console.warn('[useLiveness] Calibration timeout — using fallback baseline')
+        earBaselineRef.current = BLINK_FALLBACK
+        calibratedRef.current  = true
+        setCalibrated(true)
+      }
+    }, 10_000)
+
     let rafId
     const isRunningRef = { current: true }
     const tick = async () => {
@@ -418,6 +437,7 @@ export function useLiveness({ onComplete } = {}) {
   // ── reset ──────────────────────────────────────────────────────────────────
   const reset = useCallback(() => {
     if (faceMeshRef._stopCamera) faceMeshRef._stopCamera()
+    if (calibTimerRef.current) { clearTimeout(calibTimerRef.current); calibTimerRef.current = null }
     depthBufferRef.current   = []
     depthFramesOkRef.current = 0
     earSamplesRef.current    = []
