@@ -163,6 +163,30 @@ function UploadZone({ onFile, preview, onClear }) {
   )
 }
 
+// ─── Image analysis helper ────────────────────────────────────────────────────
+// Computes luminance mean (brightness) and variance over a sampled pixel grid.
+// High variance = structured content (text, photo borders, document).
+// Low variance  = plain surface, wall, blank space.
+function analyzeFrame(data) {
+  const stride = Math.max(1, Math.floor(data.length / (256 * 4)))
+  let sum = 0, count = 0
+  const vals = []
+  for (let i = 0; i < data.length; i += stride * 4) {
+    const luma = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
+    vals.push(luma)
+    sum += luma
+    count++
+  }
+  const mean = sum / count
+  let variance = 0
+  for (const v of vals) variance += (v - mean) ** 2
+  variance /= count
+  return {
+    brightness: Math.round((mean / 255) * 100),
+    variance:   Math.round(variance),
+  }
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function IDCapture() {
@@ -182,6 +206,11 @@ export default function IDCapture() {
   const [telemetry, setTelemetry] = useState({ lighting: 0, distance: '--', blur: '--' })
   const [flashActive, setFlashActive] = useState(false)
 
+  // Face detection — native API + debounce refs
+  const nativeFDRef      = useRef(null)   // FaceDetector instance (when supported)
+  const facePositiveRef  = useRef(0)      // consecutive positive frames
+  const faceNegativeRef  = useRef(0)      // consecutive negative frames
+
   const { videoRef: camVideoRef, isReady, error, flipCamera, startCamera, captureFrame } = useCamera({
     facing: 'environment', width: 1280, height: 720,
   })
@@ -199,6 +228,15 @@ export default function IDCapture() {
       startCamera('environment')
     }
   }, [inputMode])
+
+  // Init native FaceDetector once (Chrome / Edge, Android Chrome)
+  useEffect(() => {
+    if ('FaceDetector' in window) {
+      try {
+        nativeFDRef.current = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 })
+      } catch { /* API present but unsupported (security policy, etc.) */ }
+    }
+  }, [])
 
   // GSAP entrance
   useEffect(() => {
@@ -225,36 +263,70 @@ export default function IDCapture() {
     })
   }
 
-  // Telemetry estimation loop (camera mode only)
+  // Telemetry + face detection loop (camera mode only)
   useEffect(() => {
     if (!isReady || inputMode !== 'camera') return
-    const interval = setInterval(() => {
-      if (!videoRef.current || !canvasRef.current) return
-      const canvas = canvasRef.current
-      const video = videoRef.current
-      // willReadFrequently optimizes for repeated getImageData calls
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })
-      canvas.width = video.videoWidth || 320
-      canvas.height = video.videoHeight || 240
-      ctx.drawImage(video, 0, 0)
 
+    const interval = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current) return
+      const video  = videoRef.current
+      const canvas = canvasRef.current
+
+      // Cap resolution for performance on mobile
+      canvas.width  = Math.min(video.videoWidth  || 320, 640)
+      canvas.height = Math.min(video.videoHeight || 240, 480)
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-      let sum = 0
-      const step = Math.max(1, Math.floor(data.length / 64 / 4))
-      let count = 0
-      for (let i = 0; i < data.length; i += step * 4) {
-        sum += (data[i] + data[i + 1] + data[i + 2]) / 3
-        count++
+      const { brightness, variance } = analyzeFrame(data)
+
+      // ── Detection strategy ──────────────────────────────────────────────────
+      let rawDetected = false
+
+      if (nativeFDRef.current) {
+        // Native FaceDetector (Chrome Android, Edge) — actual ML face detection
+        try {
+          const faces = await nativeFDRef.current.detect(video)
+          rawDetected = faces.length > 0
+        } catch { /* silently ignore; falls through to false */ }
+      } else {
+        // Fallback heuristic: require structured content (not just brightness)
+        // A document with a face photo has distinct text, borders, and photo contrast
+        // → high variance AND acceptable brightness range
+        // Variance thresholds:  plain wall ~50-200 | blank paper ~100-400 | document ~700+
+        rawDetected = brightness >= 28 && brightness <= 88 && variance >= 750
       }
-      const brightness = Math.round((sum / count) / 255 * 100)
-      const mockFace = brightness > 20 && brightness < 95
-      setFaceDetected(mockFace)
-      setTelemetry({
-        lighting: brightness,
-        distance: mockFace ? 'Óptima' : 'Ajustar',
-        blur: brightness > 30 ? 'Nítido' : 'Bajo',
-      })
-    }, 500)
+
+      // ── Debounce ────────────────────────────────────────────────────────────
+      // Require 2 consecutive positives to show badge, 4 negatives to hide it
+      if (rawDetected) {
+        facePositiveRef.current  = Math.min(facePositiveRef.current + 1, 5)
+        faceNegativeRef.current  = 0
+      } else {
+        faceNegativeRef.current  = Math.min(faceNegativeRef.current + 1, 6)
+        facePositiveRef.current  = 0
+      }
+
+      const confirmed = facePositiveRef.current >= 2
+      const absent    = faceNegativeRef.current >= 4
+      setFaceDetected(prev => confirmed ? true : absent ? false : prev)
+
+      // ── Telemetry ───────────────────────────────────────────────────────────
+      const blurLabel =
+        variance >= 1200 ? 'Nítido'
+        : variance >= 600 ? 'Aceptable'
+        : 'Bajo'
+
+      const distLabel =
+        confirmed ? 'Óptima'
+        : brightness < 28 ? 'Muy oscuro'
+        : variance < 300  ? 'Sin contenido'
+        : 'Ajustar'
+
+      setTelemetry({ lighting: brightness, distance: distLabel, blur: blurLabel })
+    }, 450)
+
     return () => clearInterval(interval)
   }, [isReady, inputMode])
 
