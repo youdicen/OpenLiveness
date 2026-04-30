@@ -1,13 +1,13 @@
 import { useRef, useState, useCallback } from 'react'
 
 // ─── Thresholds ───────────────────────────────────────────────────────────────
-const BLINK_FALLBACK   = 0.22   // fallback antes de calibración
-const BLINK_RATIO      = 0.72   // umbral dinámico = baseline * 0.72
+const BLINK_FALLBACK   = 0.24   // fallback antes de calibración (más alto = más fácil)
+const BLINK_RATIO      = 0.75   // umbral dinámico = baseline * 0.75 (más generoso en móvil)
 const BLINK_FLOOR      = 0.17   // mínimo absoluto
-const BLINK_CEIL       = 0.26   // máximo absoluto
-const FRAMES_CLOSE     = 3      // frames "cerrado" para iniciar parpadeo
-const FRAMES_OPEN      = 2      // frames "abierto" para completar ciclo
-const BLINK_COOLDOWN   = 25     // frames de espera tras parpadeo exitoso
+const BLINK_CEIL       = 0.28   // máximo absoluto
+const FRAMES_CLOSE     = 2      // frames "cerrado" (bajado de 3 para móvil)
+const FRAMES_OPEN      = 1      // frames "abierto" para completar ciclo (bajado de 2)
+const BLINK_COOLDOWN   = 15     // frames de espera tras parpadeo exitoso (bajado de 25)
 const CALIBRATION_FRAMES = 45   // frames para calcular baseline personal
 
 const YAW_THRESHOLD = 18
@@ -140,6 +140,7 @@ export function useLiveness({ onComplete } = {}) {
 
   // Infrastructure
   const faceMeshRef      = useRef(null)
+  const isPreviewModeRef = useRef(false)   // true = solo dibuja, no avanza desafíos
   const meshConstantsRef = useRef(null)
   const lastFrameTimeRef = useRef(Date.now())
   const fpsRef           = useRef(0)
@@ -150,6 +151,8 @@ export function useLiveness({ onComplete } = {}) {
 
   // ── initFaceMesh ──────────────────────────────────────────────────────────
   const initFaceMesh = useCallback(async () => {
+    // Idempotente: si ya existe una instancia la reutiliza (preview → liveness)
+    if (faceMeshRef.current) return true
     try {
       const mod = await import('@mediapipe/face_mesh')
       const FaceMeshCtor =
@@ -208,6 +211,9 @@ export function useLiveness({ onComplete } = {}) {
       const depthNow = depthFramesOkRef.current >= DEPTH_FRAMES_REQUIRED
       drawFaceMesh(canvasRef.current, lm, meshConstantsRef.current, depthNow)
     }
+
+    // Preview mode: solo dibuja la malla, no avanza desafíos
+    if (isPreviewModeRef.current) return
 
     // ── EAR / Yaw / Depth ────────────────────────────────────────────────────
     const earL = calcEAR(LEFT_EYE_IDX.map(i => lm[i]))
@@ -332,8 +338,46 @@ export function useLiveness({ onComplete } = {}) {
     })
   }, [onComplete])
 
+  // ── startPreview — dibuja la malla sin avanzar desafíos ──────────────────
+  const startPreview = useCallback(async (video, canvas) => {
+    videoRef.current  = video
+    canvasRef.current = canvas
+    isPreviewModeRef.current = true
+
+    const ok = await initFaceMesh()
+    if (!ok) return
+
+    let rafId
+    const runRef = { current: true }
+    const tick = async () => {
+      if (!runRef.current) return
+      if (faceMeshRef.current && video.readyState >= 2) {
+        try { await faceMeshRef.current.send({ image: video }) } catch { /* ignore */ }
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    faceMeshRef._previewStop = () => { runRef.current = false; cancelAnimationFrame(rafId) }
+  }, [initFaceMesh])
+
+  // ── stopPreview ───────────────────────────────────────────────────────────
+  const stopPreview = useCallback(() => {
+    if (faceMeshRef._previewStop) {
+      faceMeshRef._previewStop()
+      faceMeshRef._previewStop = null
+    }
+    // isPreviewModeRef se resetea en start() cuando arranca el test real
+  }, [])
+
   // ── start ──────────────────────────────────────────────────────────────────
   const start = useCallback(async (video, canvas) => {
+    // Detener preview si estaba activo
+    if (faceMeshRef._previewStop) {
+      faceMeshRef._previewStop()
+      faceMeshRef._previewStop = null
+    }
+    isPreviewModeRef.current = false  // salir del modo preview
+
     videoRef.current  = video
     canvasRef.current = canvas
 
@@ -409,6 +453,8 @@ export function useLiveness({ onComplete } = {}) {
     capturedFrame,
     calibrated,
     start,
+    startPreview,
+    stopPreview,
     reset,
     getDepthResult,
   }

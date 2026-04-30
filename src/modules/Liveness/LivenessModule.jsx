@@ -104,6 +104,8 @@ export default function LivenessModule() {
     capturedFrame,
     calibrated,
     start: startLiveness,
+    startPreview,
+    stopPreview,
     reset,
     getDepthResult,
   } = useLiveness({ onComplete: handleComplete })
@@ -137,6 +139,17 @@ export default function LivenessModule() {
       }
     }
   }, [])
+
+  // Start preview mesh when video is ready (before user presses Iniciar)
+  useEffect(() => {
+    if (videoReady && !started && videoRef.current && canvasRef.current) {
+      startPreview(videoRef.current, canvasRef.current)
+    }
+    return () => {
+      if (!started) stopPreview()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoReady])
 
   // GSAP entrance
   useEffect(() => {
@@ -194,10 +207,17 @@ export default function LivenessModule() {
               style={{ transform: 'scaleX(-1)' }}
             />
 
-            {/* Landmark overlay canvas */}
+            {/* Landmark overlay canvas — animated based on state */}
             <canvas
               ref={canvasRef}
-              className="absolute inset-0 w-full h-full rounded-container"
+              className={[
+                'absolute inset-0 w-full h-full rounded-container',
+                status === 'running' && telemetry.depthPass
+                  ? 'canvas-mesh-active'
+                  : !started && videoReady
+                  ? 'canvas-mesh-preview'
+                  : '',
+              ].join(' ')}
               style={{ transform: 'scaleX(-1)', pointerEvents: 'none' }}
             />
 

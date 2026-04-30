@@ -28,7 +28,7 @@ function ModeTab({ mode, current, icon: Icon, label, onClick }) {
   return (
     <button
       onClick={() => onClick(mode)}
-      className="relative flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 rounded-[8px]"
+      className="relative flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 rounded-[8px] flex-1 sm:flex-none"
       style={{
         background: active ? 'var(--surface-el)' : 'transparent',
         color: active ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -288,14 +288,20 @@ export default function IDCapture() {
         // Native FaceDetector (Chrome Android, Edge) — actual ML face detection
         try {
           const faces = await nativeFDRef.current.detect(video)
-          rawDetected = faces.length > 0
+          // Require the face bounding box to occupy >3% of frame area
+          // (filters distant background faces, needs a document held close)
+          if (faces.length > 0) {
+            const frameArea = canvas.width * canvas.height
+            const { boundingBox: bb } = faces[0]
+            rawDetected = (bb.width * bb.height) / frameArea > 0.03
+          }
         } catch { /* silently ignore; falls through to false */ }
       } else {
         // Fallback heuristic: require structured content (not just brightness)
         // A document with a face photo has distinct text, borders, and photo contrast
         // → high variance AND acceptable brightness range
-        // Variance thresholds:  plain wall ~50-200 | blank paper ~100-400 | document ~700+
-        rawDetected = brightness >= 28 && brightness <= 88 && variance >= 750
+        // Variance: plain wall ~50-200 | empty room ~300-700 | document with photo ~1200+
+        rawDetected = brightness >= 28 && brightness <= 88 && variance >= 1200
       }
 
       // ── Debounce ────────────────────────────────────────────────────────────
@@ -370,8 +376,8 @@ export default function IDCapture() {
         <p className="text-sm text-text-secondary">{t('idCapture.subtitle')}</p>
       </div>
 
-      {/* Mode Tabs */}
-      <div className="idc-tabs flex items-center gap-1 mb-6 p-1 rounded-[10px] w-fit mx-auto"
+      {/* Mode Tabs — full-width on mobile to prevent overflow */}
+      <div className="idc-tabs flex items-center gap-1 mb-6 p-1 rounded-[10px] w-full sm:w-fit mx-auto"
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         <ModeTab
           mode="camera"
@@ -395,8 +401,8 @@ export default function IDCapture() {
 
           {/* ── CAMERA MODE ─────────────────────────────────── */}
           {inputMode === 'camera' && (
-            <div className="idc-camera camera-feed aspect-video relative rounded-container"
-              style={{ minHeight: '280px' }}>
+            <div className="idc-camera camera-feed relative rounded-container w-full"
+              style={{ aspectRatio: '16/9', minHeight: '200px', maxHeight: '60vh' }}>
 
               <video
                 ref={videoRef}

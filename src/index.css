@@ -295,3 +295,40 @@ h1, h2, h3, h4, h5, h6 {
 
 .animate-fade-up { animation: fade-up 0.5s ease forwards; }
 .animate-spin-slow { animation: spin-slow 8s linear infinite; }
+
+/* =========================================
+   FACE MESH CANVAS ANIMATIONS
+   ========================================= */
+
+/* Purple pulsing glow — preview mode (before liveness starts) */
+@keyframes mesh-float {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(167,139,250,0.30)) brightness(0.95);
+    opacity: 0.82;
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(167,139,250,0.70)) brightness(1.10);
+    opacity: 1;
+  }
+}
+
+/* Green glow — depth anti-spoofing passed */
+@keyframes mesh-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(50,205,50,0.35)) brightness(0.95);
+    opacity: 0.88;
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(50,205,50,0.80)) brightness(1.12);
+    opacity: 1;
+  }
+}
+
+.canvas-mesh-preview {
+  animation: mesh-float 2.8s ease-in-out infinite;
+}
+
+.canvas-mesh-active {
+  animation: mesh-glow 1.6s ease-in-out infinite;
+}
+
