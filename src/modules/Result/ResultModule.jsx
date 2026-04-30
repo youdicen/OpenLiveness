@@ -7,7 +7,7 @@ import {
 import { useVerification, STEPS } from '../../context/VerificationContext'
 import { useI18n } from '../../context/I18nContext'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = 'https://openliveness-production.up.railway.app'
 
 // ─── Real API call — no mock fallback ────────────────────────────────────────
 
