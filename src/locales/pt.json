@@ -1,0 +1,82 @@
+{
+  "header": {
+    "brand": "Open Liveness",
+    "status": "Sistema Operacional",
+    "lang": "Idioma"
+  },
+  "stepper": {
+    "step1": "Documento",
+    "step2": "Prova de Vida",
+    "step3": "Resultado"
+  },
+  "idCapture": {
+    "title": "Capture seu Documento",
+    "subtitle": "Coloque seu documento de identidade dentro da moldura e mantenha firme.",
+    "tip1": "Garanta boa iluminação",
+    "tip2": "Evite reflexos no documento",
+    "tip3": "Mantenha o documento paralelo à tela",
+    "telemetry": {
+      "lighting": "Iluminação",
+      "distance": "Distância",
+      "blur": "Nitidez",
+      "face": "Rosto Detectado"
+    },
+    "btn_capture": "Capturar Documento",
+    "btn_retake": "Capturar Novamente",
+    "btn_continue": "Continuar →",
+    "detecting": "Detectando rosto...",
+    "detected": "Rosto encontrado",
+    "flipCamera": "Inverter Câmera",
+    "flash": "Flash"
+  },
+  "liveness": {
+    "title": "Prova de Vida",
+    "subtitle": "Siga as instruções para confirmar sua presença física.",
+    "challenge_blink": "Piscar lentamente",
+    "challenge_left": "Vire a cabeça para a esquerda",
+    "challenge_right": "Vire a cabeça para a direita",
+    "challenge_center": "Olhe diretamente para a câmera",
+    "progress": "Progresso",
+    "landmarks": "Pontos Faciais",
+    "ear_score": "Taxa de Piscar (EAR)",
+    "yaw_angle": "Ângulo Horizontal",
+    "fps": "FPS",
+    "completed": "Prova de Vida Aprovada!",
+    "failed": "Teste Falhou — Tente novamente",
+    "btn_retry": "Tentar Novamente",
+    "btn_continue": "Continuar →",
+    "antispoof": "Anti-Spoofing"
+  },
+  "result": {
+    "title": "Resultado da Verificação",
+    "verified": "Identidade Verificada",
+    "failed": "Verificação Falhou",
+    "similarity": "Similaridade Biométrica",
+    "liveness_pass": "Prova de Vida",
+    "doc_auth": "Autenticidade do Documento",
+    "confidence": "Confiança do Sistema",
+    "latency": "Latência de Análise",
+    "model": "Modelo Utilizado",
+    "distance_metric": "Métrica de Distância",
+    "threshold": "Limiar",
+    "btn_download": "Baixar Relatório",
+    "btn_restart": "Nova Verificação",
+    "breakdown": "Detalhamento da Análise",
+    "processing": "Processando análise biométrica...",
+    "passed": "APROVADO",
+    "rejected": "REJEITADO"
+  },
+  "footer": {
+    "status": "Sistema Operacional",
+    "version": "v1.0.0-alpha",
+    "opensource": "Código Aberto",
+    "privacy": "Arquitetura Stateless — Sem armazenamento de dados",
+    "tech": "MediaPipe + InsightFace + Python"
+  },
+  "errors": {
+    "camera_denied": "Acesso à câmera negado. Permita o acesso nas configurações do navegador.",
+    "camera_failed": "Falha ao inicializar a câmera.",
+    "api_failed": "Erro ao conectar ao servidor de análise.",
+    "no_face": "Nenhum rosto detectado no documento."
+  }
+}

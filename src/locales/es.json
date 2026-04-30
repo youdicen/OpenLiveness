@@ -1,0 +1,82 @@
+{
+  "header": {
+    "brand": "Open Liveness",
+    "status": "Sistema Operativo",
+    "lang": "Idioma"
+  },
+  "stepper": {
+    "step1": "Documento",
+    "step2": "Prueba de Vida",
+    "step3": "Resultado"
+  },
+  "idCapture": {
+    "title": "Captura tu Documento",
+    "subtitle": "Coloca tu documento de identidad dentro del marco y mantén firme.",
+    "tip1": "Asegura buena iluminación",
+    "tip2": "Evita reflejos en el documento",
+    "tip3": "Mantén el documento paralelo a la pantalla",
+    "telemetry": {
+      "lighting": "Iluminación",
+      "distance": "Distancia",
+      "blur": "Nitidez",
+      "face": "Rostro Detectado"
+    },
+    "btn_capture": "Capturar Documento",
+    "btn_retake": "Volver a Capturar",
+    "btn_continue": "Continuar →",
+    "detecting": "Detectando rostro...",
+    "detected": "Rostro encontrado",
+    "flipCamera": "Cambiar Cámara",
+    "flash": "Flash"
+  },
+  "liveness": {
+    "title": "Prueba de Vida",
+    "subtitle": "Sigue las instrucciones para confirmar tu presencia física.",
+    "challenge_blink": "Parpadea lentamente",
+    "challenge_left": "Gira tu cabeza a la izquierda",
+    "challenge_right": "Gira tu cabeza a la derecha",
+    "challenge_center": "Mira directo a la cámara",
+    "progress": "Progreso",
+    "landmarks": "Puntos Faciales",
+    "ear_score": "Índice de Parpadeo (EAR)",
+    "yaw_angle": "Ángulo Horizontal",
+    "fps": "FPS",
+    "completed": "¡Prueba de Vida Superada!",
+    "failed": "Prueba Fallida — Intenta de nuevo",
+    "btn_retry": "Intentar de Nuevo",
+    "btn_continue": "Continuar →",
+    "antispoof": "Anti-Spoofing"
+  },
+  "result": {
+    "title": "Resultado de Verificación",
+    "verified": "Identidad Verificada",
+    "failed": "Verificación Fallida",
+    "similarity": "Similitud Biométrica",
+    "liveness_pass": "Prueba de Vida",
+    "doc_auth": "Autenticidad del Documento",
+    "confidence": "Confianza del Sistema",
+    "latency": "Latencia de Análisis",
+    "model": "Modelo Utilizado",
+    "distance_metric": "Métrica de Distancia",
+    "threshold": "Umbral",
+    "btn_download": "Descargar Reporte",
+    "btn_restart": "Nueva Verificación",
+    "breakdown": "Desglose de Análisis",
+    "processing": "Procesando análisis biométrico...",
+    "passed": "APROBADO",
+    "rejected": "RECHAZADO"
+  },
+  "footer": {
+    "status": "Sistema Operativo",
+    "version": "v1.0.0-alpha",
+    "opensource": "Open Source",
+    "privacy": "Arquitectura Stateless — Sin almacenamiento de datos biométricos",
+    "tech": "MediaPipe + DeepFace + Python"
+  },
+  "errors": {
+    "camera_denied": "Acceso a cámara denegado. Permite el acceso en la configuración del navegador.",
+    "camera_failed": "No se pudo inicializar la cámara.",
+    "api_failed": "Error al conectar con el servidor de análisis.",
+    "no_face": "No se detectó un rostro en el documento."
+  }
+}

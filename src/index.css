@@ -1,0 +1,297 @@
+/* =========================================
+   LOCAL FONTS — @fontsource-variable
+   Completamente offline, sin red externa
+   ========================================= */
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* =========================================
+   OBSIDIAN DESIGN SYSTEM — Open Liveness
+   North Star: "Precision in Darkness"
+   ========================================= */
+
+:root {
+  --bg:           #09090b;
+  --surface:      #0c0c0f;
+  --surface-mid:  #141417;
+  --surface-el:   #1c1c1f;
+  --surface-high: #27272a;
+  --primary:      #a78bfa;
+  --primary-glow: rgba(167, 139, 250, 0.15);
+  --tertiary:     #34d399;
+  --tertiary-glow:rgba(52, 211, 153, 0.15);
+  --error:        #ef4444;
+  --error-glow:   rgba(239, 68, 68, 0.15);
+  --text-primary: #fafafa;
+  --text-secondary:#a1a1aa;
+  --text-muted:   #71717a;
+  --border:       #27272a;
+  --border-subtle:#18181b;
+  --radius-card:  8px;
+  --radius-pill:  9999px;
+  --radius-container: 16px;
+}
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Base */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Geist Variable', 'Geist', system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* =========================================
+   TYPOGRAPHY
+   ========================================= */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.text-mono {
+  font-family: 'Geist Mono Variable', 'Geist Mono', monospace;
+  letter-spacing: 0;
+}
+
+/* =========================================
+   COMPONENTS
+   ========================================= */
+
+/* Buttons */
+.btn-primary {
+  @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-[8px] font-medium text-sm;
+  background: var(--primary);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 20px var(--primary-glow), 0 0 40px var(--primary-glow);
+}
+.btn-primary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-[8px] font-medium text-sm;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+  background: var(--surface-mid);
+  transform: scale(1.02);
+}
+.btn-secondary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn-ghost {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-[8px] font-medium text-sm;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-ghost:hover {
+  color: var(--text-primary);
+  background: var(--surface-mid);
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.card-elevated {
+  background: var(--surface-el);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-container);
+}
+
+/* Inputs */
+.input {
+  @apply w-full px-3 py-2 text-sm rounded-[8px];
+  background: var(--surface-mid);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: 'Geist Variable', 'Geist', sans-serif;
+}
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+/* Code / mono blocks */
+.code-block {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  font-family: 'Geist Mono Variable', 'Geist Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 0.75rem 1rem;
+}
+
+/* =========================================
+   FOCUS RINGS (accessibility)
+   ========================================= */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* =========================================
+   CAMERA / VIDEO UTILITIES
+   ========================================= */
+.camera-feed {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius-container);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.camera-feed video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror for front camera */
+}
+
+.camera-feed canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Document frame overlay corners */
+.doc-corner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-color: var(--primary);
+  border-style: solid;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.doc-corner.active {
+  border-color: var(--tertiary);
+  box-shadow: 0 0 12px var(--tertiary-glow);
+}
+.doc-corner-tl { top: 0; left: 0; border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
+.doc-corner-tr { top: 0; right: 0; border-width: 2px 2px 0 0; border-radius: 0 4px 0 0; }
+.doc-corner-bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; border-radius: 0 0 0 4px; }
+.doc-corner-br { bottom: 0; right: 0; border-width: 0 2px 2px 0; border-radius: 0 0 4px 0; }
+
+/* Scanning line animation */
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: scan-line 3s linear infinite;
+  opacity: 0.6;
+}
+
+/* =========================================
+   STATUS INDICATORS
+   ========================================= */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-dot.online { background: var(--tertiary); animation: pulse-dot 2s ease-in-out infinite; }
+.status-dot.error  { background: var(--error); }
+.status-dot.idle   { background: var(--text-muted); }
+
+/* =========================================
+   SCROLLBAR
+   ========================================= */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--surface-high); }
+
+/* =========================================
+   ANIMATIONS
+   ========================================= */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes scan-line {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
+@keyframes fade-up {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes blink-arc {
+  0%, 100% { stroke-dashoffset: 220; }
+  50%       { stroke-dashoffset: 0; }
+}
+
+.animate-fade-up { animation: fade-up 0.5s ease forwards; }
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }

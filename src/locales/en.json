@@ -1,0 +1,82 @@
+{
+  "header": {
+    "brand": "Open Liveness",
+    "status": "System Operational",
+    "lang": "Language"
+  },
+  "stepper": {
+    "step1": "Document",
+    "step2": "Liveness Check",
+    "step3": "Result"
+  },
+  "idCapture": {
+    "title": "Capture Your Document",
+    "subtitle": "Place your ID document inside the frame and hold steady.",
+    "tip1": "Ensure good lighting",
+    "tip2": "Avoid reflections on the document",
+    "tip3": "Keep the document parallel to the screen",
+    "telemetry": {
+      "lighting": "Lighting",
+      "distance": "Distance",
+      "blur": "Sharpness",
+      "face": "Face Detected"
+    },
+    "btn_capture": "Capture Document",
+    "btn_retake": "Retake",
+    "btn_continue": "Continue →",
+    "detecting": "Detecting face...",
+    "detected": "Face found",
+    "flipCamera": "Flip Camera",
+    "flash": "Flash"
+  },
+  "liveness": {
+    "title": "Liveness Check",
+    "subtitle": "Follow the instructions to confirm your physical presence.",
+    "challenge_blink": "Blink slowly",
+    "challenge_left": "Turn your head to the left",
+    "challenge_right": "Turn your head to the right",
+    "challenge_center": "Look directly at the camera",
+    "progress": "Progress",
+    "landmarks": "Facial Landmarks",
+    "ear_score": "Eye Aspect Ratio (EAR)",
+    "yaw_angle": "Horizontal Angle",
+    "fps": "FPS",
+    "completed": "Liveness Check Passed!",
+    "failed": "Test Failed — Try again",
+    "btn_retry": "Try Again",
+    "btn_continue": "Continue →",
+    "antispoof": "Anti-Spoofing"
+  },
+  "result": {
+    "title": "Verification Result",
+    "verified": "Identity Verified",
+    "failed": "Verification Failed",
+    "similarity": "Biometric Similarity",
+    "liveness_pass": "Liveness Check",
+    "doc_auth": "Document Authenticity",
+    "confidence": "System Confidence",
+    "latency": "Analysis Latency",
+    "model": "Model Used",
+    "distance_metric": "Distance Metric",
+    "threshold": "Threshold",
+    "btn_download": "Download Report",
+    "btn_restart": "New Verification",
+    "breakdown": "Analysis Breakdown",
+    "processing": "Processing biometric analysis...",
+    "passed": "PASSED",
+    "rejected": "REJECTED"
+  },
+  "footer": {
+    "status": "System Operational",
+    "version": "v1.0.0-alpha",
+    "opensource": "Open Source",
+    "privacy": "Stateless Architecture — No biometric data stored",
+    "tech": "MediaPipe + InsightFace + Python"
+  },
+  "errors": {
+    "camera_denied": "Camera access denied. Please allow access in browser settings.",
+    "camera_failed": "Failed to initialize camera.",
+    "api_failed": "Error connecting to analysis server.",
+    "no_face": "No face detected in the document."
+  }
+}
