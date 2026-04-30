@@ -334,3 +334,9 @@ def verify_identity(payload: VerifyRequest):
         face_detected_live=face_live_ok,
         reject_reason=reject_reason,
     )
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
