@@ -1,9 +1,9 @@
 /**
  * API Configuration — Open Liveness
  *
- * En desarrollo: apunta a http://localhost:8000 (backend local)
- * En producción: usa la variable de entorno VITE_API_URL inyectada por Railway
+ * Producción (Railway):  API_BASE = '' → fetch('/api/verify') — mismo origen, sin CORS
+ * Desarrollo (local):    API_BASE = '' → Vite proxy reenvía /api/* → localhost:8000
  *
- * Nunca hardcodear la URL directamente en los componentes.
+ * VITE_API_URL puede setearse para split-deployment futuro si se necesita.
  */
-export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+export const API_BASE = import.meta.env.VITE_API_URL ?? ''

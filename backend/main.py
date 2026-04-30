@@ -23,10 +23,13 @@ import time
 from io import BytesIO
 from typing import Optional
 
+import pathlib
+
 import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from insightface.app import FaceAnalysis
 from PIL import Image
 from pydantic import BaseModel
@@ -336,3 +339,17 @@ def verify_identity(payload: VerifyRequest):
         face_detected_live=face_live_ok,
         reject_reason=reject_reason,
     )
+
+
+# ─── Static frontend (producción) ────────────────────────────────────────────
+# Solo se activa cuando el dist/ existe (build de Docker).
+# En desarrollo local este bloque no hace nada porque dist/ no está presente.
+# IMPORTANTE: debe ir DESPUÉS de todos los @app.get / @app.post para que las
+# rutas de la API tengan prioridad sobre el mount estático.
+
+_dist_dir = pathlib.Path(__file__).parent / "dist"
+if _dist_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_dist_dir), html=True), name="static")
+    logger.info(f"[Static] Sirviendo frontend desde {_dist_dir}")
+else:
+    logger.info("[Static] dist/ no encontrado — modo API-only (desarrollo local)")

@@ -1,13 +1,12 @@
-# railway.toml — Servicio FRONTEND (raíz del proyecto)
+# railway.toml — Servicio UNIFICADO (frontend + backend en un solo contenedor)
 # Documentación: https://docs.railway.com/reference/config-as-code
 
 [build]
-builder = "nixpacks"
-buildCommand = "npm run build"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npx serve -s dist -l $PORT"
-healthcheckPath = "/"
-healthcheckTimeout = 30
+healthcheckPath = "/health"
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
