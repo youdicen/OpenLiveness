@@ -6,8 +6,7 @@ import {
 } from 'lucide-react'
 import { useVerification, STEPS } from '../../context/VerificationContext'
 import { useI18n } from '../../context/I18nContext'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from '../../config/api'
 
 // ─── Real API call — no mock fallback ────────────────────────────────────────
 

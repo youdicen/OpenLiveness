@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
 import time
 from io import BytesIO
 from typing import Optional
@@ -58,14 +59,22 @@ app = FastAPI(
     version="2.0.0",
 )
 
+_default_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+]
+
+def _parse_origins() -> list[str]:
+    """Lee ALLOWED_ORIGINS (CSV) desde env; si no existe usa defaults de desarrollo."""
+    raw = os.environ.get("ALLOWED_ORIGINS", "")
+    extra = [o.strip() for o in raw.split(",") if o.strip()]
+    return list(dict.fromkeys(_default_origins + extra))  # deduplica, mantiene orden
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=_parse_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
