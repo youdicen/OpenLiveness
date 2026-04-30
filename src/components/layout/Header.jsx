@@ -40,7 +40,7 @@ export default function Header() {
           title="Recargar página principal"
         >
           <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 border border-primary/30 overflow-hidden p-1.5">
-            <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="Open Liveness" className="w-full h-full object-contain" />
+            <img src="/icon.svg" alt="Open Liveness" className="w-full h-full object-contain" />
           </div>
           <span className="text-sm font-semibold text-text-primary tracking-tight">
             Open Liveness

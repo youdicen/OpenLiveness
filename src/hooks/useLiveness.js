@@ -102,7 +102,7 @@ export function useLiveness({ onComplete } = {}) {
       }
 
       const fm = new FaceMeshCtor({
-        locateFile: (file) => `${import.meta.env.BASE_URL}mediapipe/${file}`,
+        locateFile: (file) => `/mediapipe/${file}`,
       })
       fm.setOptions({
         maxNumFaces: 1,

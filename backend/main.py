@@ -61,22 +61,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://youdicen.github.io",
         "http://localhost:5173",
-        "http://127.0.0.1:5173"
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.get("/")
-def read_root():
-    return {
-        "status": "online",
-        "message": "Open Liveness API is running. Send POST to /api/verify for liveness checks.",
-        "docs": "/docs"
-    }
 
 
 # ─── Pydantic models ──────────────────────────────────────────────────────────
@@ -334,9 +327,3 @@ def verify_identity(payload: VerifyRequest):
         face_detected_live=face_live_ok,
         reject_reason=reject_reason,
     )
-
-if __name__ == "__main__":
-    import uvicorn
-    import os
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
