@@ -1,21 +1,21 @@
 import { useRef, useState, useCallback } from 'react'
 
 // ─── Thresholds ───────────────────────────────────────────────────────────────
+const BLINK_FALLBACK   = 0.22   // fallback antes de calibración
+const BLINK_RATIO      = 0.72   // umbral dinámico = baseline * 0.72
+const BLINK_FLOOR      = 0.17   // mínimo absoluto
+const BLINK_CEIL       = 0.26   // máximo absoluto
+const FRAMES_CLOSE     = 3      // frames "cerrado" para iniciar parpadeo
+const FRAMES_OPEN      = 2      // frames "abierto" para completar ciclo
+const BLINK_COOLDOWN   = 25     // frames de espera tras parpadeo exitoso
+const CALIBRATION_FRAMES = 45   // frames para calcular baseline personal
 
-// Eye Aspect Ratio — blink detection
-const BLINK_THRESHOLD    = 0.21
-const EAR_FRAMES_REQUIRED = 2
-
-// Yaw threshold (degrees) for head-turn challenges
 const YAW_THRESHOLD = 18
 
-// Depth anti-spoofing — Z std-dev across all 468 landmarks
-// Real face: ~0.030–0.070 | Flat photo/screen: ~0.003–0.014
-export const DEPTH_THRESHOLD       = 0.018   // minimum to be considered "3D"
-export const DEPTH_FRAMES_REQUIRED = 20      // consecutive frames above threshold
+export const DEPTH_THRESHOLD       = 0.018
+export const DEPTH_FRAMES_REQUIRED = 20
 
 // ─── Challenge sequence ───────────────────────────────────────────────────────
-
 export const CHALLENGES = [
   { id: 'center', key: 'challenge_center', check: 'center' },
   { id: 'blink',  key: 'challenge_blink',  check: 'blink'  },
@@ -23,8 +23,11 @@ export const CHALLENGES = [
   { id: 'right',  key: 'challenge_right',  check: 'right'  },
 ]
 
-// ─── Geometry helpers ─────────────────────────────────────────────────────────
+// ─── Eye landmark indices ─────────────────────────────────────────────────────
+const LEFT_EYE_IDX  = [362, 385, 387, 263, 373, 380]
+const RIGHT_EYE_IDX = [33,  160, 158, 133, 153, 144]
 
+// ─── Geometry helpers ─────────────────────────────────────────────────────────
 function calcEAR(eye) {
   const p = eye
   const A = Math.hypot(p[1].x - p[5].x, p[1].y - p[5].y)
@@ -32,9 +35,6 @@ function calcEAR(eye) {
   const C = Math.hypot(p[0].x - p[3].x, p[0].y - p[3].y)
   return (A + B) / (2.0 * C)
 }
-
-const LEFT_EYE_IDX  = [362, 385, 387, 263, 373, 380]
-const RIGHT_EYE_IDX = [33,  160, 158, 133, 153, 144]
 
 function calcYaw(landmarks) {
   const noseTip  = landmarks[4]
@@ -46,68 +46,135 @@ function calcYaw(landmarks) {
   return (noseOffset / faceWidth) * 90
 }
 
-/**
- * Calculates the standard deviation of Z-coordinates across all 468 landmarks.
- * MediaPipe Z is relative depth — real 3D faces show high variance
- * (nose protrudes, ears recede, forehead is intermediate).
- * Flat photo or screen → near-zero Z variance.
- */
 function calcDepthScore(landmarks) {
   const zVals = landmarks.map(lm => lm.z)
   const mean  = zVals.reduce((a, b) => a + b, 0) / zVals.length
   const variance = zVals.reduce((s, z) => s + (z - mean) ** 2, 0) / zVals.length
-  return Math.sqrt(variance)   // std deviation
+  return Math.sqrt(variance)
+}
+
+// ─── Face mesh drawing ────────────────────────────────────────────────────────
+function stroke(ctx, lm, connections, w, h) {
+  if (!connections) return
+  ctx.beginPath()
+  for (const [i, j] of connections) {
+    const a = lm[i], b = lm[j]
+    if (!a || !b) continue
+    ctx.moveTo(a.x * w, a.y * h)
+    ctx.lineTo(b.x * w, b.y * h)
+  }
+  ctx.stroke()
+}
+
+function drawFaceMesh(canvas, lm, mc, depthPass) {
+  if (!canvas || !lm || !mc) return
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  const w = canvas.width
+  const h = canvas.height
+
+  const accent = depthPass ? 'rgba(50,205,50,' : 'rgba(167,139,250,'
+
+  // Tesselation — very subtle
+  ctx.strokeStyle = `${accent}0.07)`
+  ctx.lineWidth = 0.5
+  stroke(ctx, lm, mc.tesselation, w, h)
+
+  // Face oval
+  ctx.strokeStyle = `${accent}0.45)`
+  ctx.lineWidth = 1.5
+  stroke(ctx, lm, mc.faceOval, w, h)
+
+  // Eyebrows
+  ctx.strokeStyle = `${accent}0.65)`
+  ctx.lineWidth = 1.2
+  stroke(ctx, lm, mc.leftEyebrow,  w, h)
+  stroke(ctx, lm, mc.rightEyebrow, w, h)
+
+  // Eyes
+  ctx.strokeStyle = `${accent}0.9)`
+  ctx.lineWidth = 1.5
+  stroke(ctx, lm, mc.leftEye,  w, h)
+  stroke(ctx, lm, mc.rightEye, w, h)
+
+  // Irises — cyan glow
+  ctx.strokeStyle = 'rgba(100,210,255,0.85)'
+  ctx.lineWidth = 1.5
+  stroke(ctx, lm, mc.leftIris,  w, h)
+  stroke(ctx, lm, mc.rightIris, w, h)
+
+  // Lips
+  ctx.strokeStyle = 'rgba(255,120,120,0.65)'
+  ctx.lineWidth = 1.2
+  stroke(ctx, lm, mc.lips, w, h)
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
-
 export function useLiveness({ onComplete } = {}) {
-  const [status,             setStatus]             = useState('idle')
-  const [challengeIndex,     setChallengeIndex]     = useState(0)
-  const [completedChallenges,setCompletedChallenges]= useState([])
-  const [capturedFrame,      setCapturedFrame]      = useState(null)
+  const [status,              setStatus]             = useState('idle')
+  const [challengeIndex,      setChallengeIndex]     = useState(0)
+  const [completedChallenges, setCompletedChallenges]= useState([])
+  const [capturedFrame,       setCapturedFrame]      = useState(null)
+  const [calibrated,          setCalibrated]         = useState(false)
   const [telemetry, setTelemetry] = useState({
     ear: 0, yaw: 0, landmarks: 0, fps: 0,
     depthScore: 0, depthAvg: 0, depthPass: false,
   })
 
-  // Refs — mutable state that should NOT trigger re-renders
-  const blinkFramesRef      = useRef(0)
-  const blinkDetectedRef    = useRef(false)
-  const faceMeshRef         = useRef(null)
-  const lastFrameTimeRef    = useRef(Date.now())
-  const fpsRef              = useRef(0)
-  const videoRef            = useRef(null)
-  const canvasRef           = useRef(null)
+  // Calibration
+  const earSamplesRef    = useRef([])
+  const earBaselineRef   = useRef(null)
+  const calibratedRef    = useRef(false)
 
-  // Depth tracking: rolling buffer of last 60 frame scores
-  const depthBufferRef      = useRef([])
-  const depthFramesOkRef    = useRef(0)   // consecutive frames above DEPTH_THRESHOLD
-  const depthAvgRef         = useRef(0)   // running average — read at completion time
+  // Blink state machine
+  const blinkPhaseRef    = useRef('idle')   // 'idle' | 'closing' | 'closed' | 'opening'
+  const blinkCloseFrames = useRef(0)
+  const blinkOpenFrames  = useRef(0)
+  const blinkCooldownRef = useRef(0)
+  const blinkDetectedRef = useRef(false)
+
+  // Depth tracking
+  const depthBufferRef   = useRef([])
+  const depthFramesOkRef = useRef(0)
+  const depthAvgRef      = useRef(0)
+
+  // Infrastructure
+  const faceMeshRef      = useRef(null)
+  const meshConstantsRef = useRef(null)
+  const lastFrameTimeRef = useRef(Date.now())
+  const fpsRef           = useRef(0)
+  const videoRef         = useRef(null)
+  const canvasRef        = useRef(null)
 
   const currentChallenge = CHALLENGES[challengeIndex]
 
-  // ── initFaceMesh ────────────────────────────────────────────────────────────
+  // ── initFaceMesh ──────────────────────────────────────────────────────────
   const initFaceMesh = useCallback(async () => {
     try {
-      const faceMeshMod = await import('@mediapipe/face_mesh')
-      // Handle CJS default-export wrapping in Vite
+      const mod = await import('@mediapipe/face_mesh')
       const FaceMeshCtor =
-        faceMeshMod.FaceMesh ??
-        faceMeshMod.default?.FaceMesh ??
-        faceMeshMod.default
+        mod.FaceMesh ?? mod.default?.FaceMesh ?? mod.default
 
-      if (typeof FaceMeshCtor !== 'function') {
-        throw new Error(`FaceMesh constructor not found: ${Object.keys(faceMeshMod)}`)
+      if (typeof FaceMeshCtor !== 'function') throw new Error('FaceMesh not found')
+
+      // Capture face mesh connection constants
+      meshConstantsRef.current = {
+        tesselation:   mod.FACEMESH_TESSELATION,
+        faceOval:      mod.FACEMESH_FACE_OVAL,
+        leftEye:       mod.FACEMESH_LEFT_EYE,
+        rightEye:      mod.FACEMESH_RIGHT_EYE,
+        leftEyebrow:   mod.FACEMESH_LEFT_EYEBROW,
+        rightEyebrow:  mod.FACEMESH_RIGHT_EYEBROW,
+        lips:          mod.FACEMESH_LIPS,
+        leftIris:      mod.FACEMESH_LEFT_IRIS,
+        rightIris:     mod.FACEMESH_RIGHT_IRIS,
       }
 
-      const fm = new FaceMeshCtor({
-        locateFile: (file) => `/mediapipe/${file}`,
-      })
+      const fm = new FaceMeshCtor({ locateFile: (f) => `/mediapipe/${f}` })
       fm.setOptions({
         maxNumFaces: 1,
         refineLandmarks: true,
-        minDetectionConfidence: 0.7,
+        minDetectionConfidence: 0.6,
         minTrackingConfidence: 0.5,
       })
       fm.onResults(handleResults)
@@ -120,12 +187,12 @@ export function useLiveness({ onComplete } = {}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── handleResults — called every frame by MediaPipe ──────────────────────────
+  // ── handleResults — called every frame ────────────────────────────────────
   const handleResults = useCallback((results) => {
     const now   = Date.now()
     const delta = now - lastFrameTimeRef.current
     lastFrameTimeRef.current = now
-    fpsRef.current = Math.round(1000 / delta)
+    fpsRef.current = Math.round(1000 / Math.max(delta, 1))
 
     if (!results.multiFaceLandmarks?.[0]) {
       setTelemetry(t => ({ ...t, fps: fpsRef.current, landmarks: 0 }))
@@ -134,43 +201,32 @@ export function useLiveness({ onComplete } = {}) {
 
     const lm = results.multiFaceLandmarks[0]
 
-    // ── Draw landmark overlay ──────────────────────────────────────────────────
+    // ── Draw face mesh ───────────────────────────────────────────────────────
     if (canvasRef.current && results.image) {
-      const ctx = canvasRef.current.getContext('2d')
       canvasRef.current.width  = results.image.width
       canvasRef.current.height = results.image.height
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
-      lm.forEach(pt => {
-        ctx.beginPath()
-        ctx.arc(pt.x * canvasRef.current.width, pt.y * canvasRef.current.height, 1, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(167,139,250,0.4)'
-        ctx.fill()
-      })
+      const depthNow = depthFramesOkRef.current >= DEPTH_FRAMES_REQUIRED
+      drawFaceMesh(canvasRef.current, lm, meshConstantsRef.current, depthNow)
     }
 
-    // ── EAR / Yaw ─────────────────────────────────────────────────────────────
-    const ear = (calcEAR(LEFT_EYE_IDX.map(i => lm[i])) + calcEAR(RIGHT_EYE_IDX.map(i => lm[i]))) / 2
-    const yaw = calcYaw(lm)
-
-    // ── LAYER 1: Z-depth anti-spoofing ────────────────────────────────────────
+    // ── EAR / Yaw / Depth ────────────────────────────────────────────────────
+    const earL = calcEAR(LEFT_EYE_IDX.map(i => lm[i]))
+    const earR = calcEAR(RIGHT_EYE_IDX.map(i => lm[i]))
+    const ear  = (earL + earR) / 2
+    const yaw  = calcYaw(lm)
     const depthScore = calcDepthScore(lm)
 
-    // Rolling buffer (last 60 frames ≈ 3s at 20fps)
     const buf = depthBufferRef.current
     buf.push(depthScore)
     if (buf.length > 60) buf.shift()
-
     const depthAvg = buf.reduce((a, b) => a + b, 0) / buf.length
     depthAvgRef.current = depthAvg
 
-    // Track consecutive frames above threshold (stricter check)
     if (depthScore >= DEPTH_THRESHOLD) {
       depthFramesOkRef.current = Math.min(depthFramesOkRef.current + 1, DEPTH_FRAMES_REQUIRED + 10)
     } else {
-      // Decay — don't instantly reset, allow brief dips
       depthFramesOkRef.current = Math.max(0, depthFramesOkRef.current - 2)
     }
-
     const depthPass = depthFramesOkRef.current >= DEPTH_FRAMES_REQUIRED
 
     setTelemetry({
@@ -181,24 +237,66 @@ export function useLiveness({ onComplete } = {}) {
       depthScore: Math.round(depthScore * 1000) / 1000,
       depthAvg:   Math.round(depthAvg   * 1000) / 1000,
       depthPass,
+      earBaseline: earBaselineRef.current
+        ? Math.round(earBaselineRef.current * 1000) / 1000
+        : null,
     })
 
-    // ── Challenge progression ──────────────────────────────────────────────────
+    // ── Challenge progression ─────────────────────────────────────────────────
     setChallengeIndex(idx => {
       const challenge = CHALLENGES[idx]
       if (!challenge) return idx
 
       let passed = false
+
       if (challenge.check === 'center') {
+        // Collect EAR samples for personal calibration while centered
+        if (!calibratedRef.current && Math.abs(yaw) < 12) {
+          earSamplesRef.current.push(ear)
+          if (earSamplesRef.current.length >= CALIBRATION_FRAMES) {
+            const sorted = [...earSamplesRef.current].sort((a, b) => a - b)
+            // 80th percentile = open-eye EAR (filters accidental blinks)
+            earBaselineRef.current = sorted[Math.floor(sorted.length * 0.80)]
+            calibratedRef.current = true
+            setCalibrated(true)
+          }
+        }
         passed = Math.abs(yaw) < 10
+
       } else if (challenge.check === 'blink') {
-        if (ear < BLINK_THRESHOLD) {
-          blinkFramesRef.current++
+        // Dynamic threshold based on personal baseline
+        const threshold = calibratedRef.current
+          ? Math.max(Math.min(earBaselineRef.current * BLINK_RATIO, BLINK_CEIL), BLINK_FLOOR)
+          : BLINK_FALLBACK
+
+        if (blinkCooldownRef.current > 0) {
+          blinkCooldownRef.current--
+        } else if (ear < threshold) {
+          // Eye closing / closed
+          blinkCloseFrames.current++
+          blinkOpenFrames.current = 0
+          if (blinkCloseFrames.current >= FRAMES_CLOSE) {
+            blinkPhaseRef.current = 'closed'
+          }
         } else {
-          if (blinkFramesRef.current >= EAR_FRAMES_REQUIRED) blinkDetectedRef.current = true
-          blinkFramesRef.current = 0
+          // Eye open
+          if (blinkPhaseRef.current === 'closed') {
+            blinkOpenFrames.current++
+            if (blinkOpenFrames.current >= FRAMES_OPEN) {
+              // Full blink cycle complete ✓
+              blinkDetectedRef.current = true
+              blinkCooldownRef.current = BLINK_COOLDOWN
+              blinkPhaseRef.current    = 'idle'
+              blinkCloseFrames.current = 0
+              blinkOpenFrames.current  = 0
+            }
+          } else {
+            blinkPhaseRef.current    = 'idle'
+            blinkCloseFrames.current = 0
+          }
         }
         passed = blinkDetectedRef.current
+
       } else if (challenge.check === 'left') {
         passed = yaw < -YAW_THRESHOLD
       } else if (challenge.check === 'right') {
@@ -211,7 +309,6 @@ export function useLiveness({ onComplete } = {}) {
             const updated = [...c, challenge.id]
             if (updated.length >= CHALLENGES.length) {
               setStatus('passed')
-              // Capture the liveness frame at completion
               if (videoRef.current && canvasRef.current) {
                 const cap = document.createElement('canvas')
                 cap.width  = videoRef.current.videoWidth
@@ -222,6 +319,9 @@ export function useLiveness({ onComplete } = {}) {
               onComplete?.()
             }
             blinkDetectedRef.current = false
+            blinkPhaseRef.current    = 'idle'
+            blinkCloseFrames.current = 0
+            blinkOpenFrames.current  = 0
             return updated
           }
           return c
@@ -232,14 +332,20 @@ export function useLiveness({ onComplete } = {}) {
     })
   }, [onComplete])
 
-  // ── start ────────────────────────────────────────────────────────────────────
+  // ── start ──────────────────────────────────────────────────────────────────
   const start = useCallback(async (video, canvas) => {
     videoRef.current  = video
     canvasRef.current = canvas
 
     // Reset all state
-    blinkFramesRef.current   = 0
+    blinkPhaseRef.current    = 'idle'
+    blinkCloseFrames.current = 0
+    blinkOpenFrames.current  = 0
+    blinkCooldownRef.current = 0
     blinkDetectedRef.current = false
+    earSamplesRef.current    = []
+    earBaselineRef.current   = null
+    calibratedRef.current    = false
     depthBufferRef.current   = []
     depthFramesOkRef.current = 0
 
@@ -247,14 +353,13 @@ export function useLiveness({ onComplete } = {}) {
     setCompletedChallenges([])
     setStatus('running')
     setCapturedFrame(null)
+    setCalibrated(false)
 
     const ok = await initFaceMesh()
     if (!ok) { setStatus('failed'); return }
 
-    // RAF loop — avoids @mediapipe/camera_utils CJS issues, gives full control
     let rafId
     const isRunningRef = { current: true }
-
     const tick = async () => {
       if (!isRunningRef.current) return
       if (faceMeshRef.current && video.readyState >= 2) {
@@ -263,32 +368,35 @@ export function useLiveness({ onComplete } = {}) {
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
-
-    faceMeshRef._stopCamera = () => {
-      isRunningRef.current = false
-      cancelAnimationFrame(rafId)
-    }
+    faceMeshRef._stopCamera = () => { isRunningRef.current = false; cancelAnimationFrame(rafId) }
   }, [initFaceMesh])
 
-  // ── reset ────────────────────────────────────────────────────────────────────
+  // ── reset ──────────────────────────────────────────────────────────────────
   const reset = useCallback(() => {
     if (faceMeshRef._stopCamera) faceMeshRef._stopCamera()
     depthBufferRef.current   = []
     depthFramesOkRef.current = 0
+    earSamplesRef.current    = []
+    earBaselineRef.current   = null
+    calibratedRef.current    = false
+    blinkPhaseRef.current    = 'idle'
+    blinkCloseFrames.current = 0
+    blinkOpenFrames.current  = 0
+    blinkCooldownRef.current = 0
+    blinkDetectedRef.current = false
     setChallengeIndex(0)
     setCompletedChallenges([])
     setStatus('idle')
     setCapturedFrame(null)
-    blinkFramesRef.current   = 0
-    blinkDetectedRef.current = false
+    setCalibrated(false)
   }, [])
 
-  // ── getDepthResult — snapshot of depth analysis at completion time ───────────
+  // ── getDepthResult ─────────────────────────────────────────────────────────
   const getDepthResult = useCallback(() => ({
-    depthScore:        depthAvgRef.current,
-    depthFramesOk:     depthFramesOkRef.current,
-    depthPass:         depthFramesOkRef.current >= DEPTH_FRAMES_REQUIRED,
-    depthThreshold:    DEPTH_THRESHOLD,
+    depthScore:     depthAvgRef.current,
+    depthFramesOk:  depthFramesOkRef.current,
+    depthPass:      depthFramesOkRef.current >= DEPTH_FRAMES_REQUIRED,
+    depthThreshold: DEPTH_THRESHOLD,
   }), [])
 
   return {
@@ -299,8 +407,9 @@ export function useLiveness({ onComplete } = {}) {
     totalChallenges: CHALLENGES.length,
     telemetry,
     capturedFrame,
+    calibrated,
     start,
     reset,
-    getDepthResult,   // ← NEW: call this when status === 'passed'
+    getDepthResult,
   }
 }

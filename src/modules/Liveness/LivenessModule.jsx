@@ -102,6 +102,7 @@ export default function LivenessModule() {
     totalChallenges,
     telemetry,
     capturedFrame,
+    calibrated,
     start: startLiveness,
     reset,
     getDepthResult,
@@ -224,6 +225,24 @@ export default function LivenessModule() {
               </div>
             )}
 
+            {/* Calibration indicator */}
+            {started && status === 'running' && !calibrated && currentChallenge?.check === 'center' && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full"
+                style={{ background: 'rgba(9,9,11,0.80)', border: '1px solid var(--border)' }}>
+                <span className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                  ◌ Calibrando perfil ocular...
+                </span>
+              </div>
+            )}
+
+            {/* Calibration done badge */}
+            {started && status === 'running' && calibrated && (
+              <div className="absolute top-3 right-3 px-2 py-1 rounded-full"
+                style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid var(--tertiary)' }}>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--tertiary)' }}>✓ Perfil listo</span>
+              </div>
+            )}
+
             {/* Start button overlay */}
             {!started && (
               <div className="absolute inset-0 flex items-center justify-center rounded-container"
@@ -291,10 +310,11 @@ export default function LivenessModule() {
             </div>
             <div className="space-y-1.5">
               {[
-                { label: t('liveness.ear_score'), value: telemetry.ear.toString() },
-                { label: t('liveness.yaw_angle'), value: `${telemetry.yaw}°` },
-                { label: t('liveness.landmarks'), value: telemetry.landmarks.toString() },
-                { label: t('liveness.fps'),        value: telemetry.fps.toString() },
+                { label: t('liveness.ear_score'),  value: telemetry.ear.toString() },
+                { label: 'EAR baseline',            value: telemetry.earBaseline != null ? telemetry.earBaseline.toString() : '—' },
+                { label: t('liveness.yaw_angle'),  value: `${telemetry.yaw}°` },
+                { label: t('liveness.landmarks'),  value: telemetry.landmarks.toString() },
+                { label: t('liveness.fps'),         value: telemetry.fps.toString() },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between py-1 border-b border-border-subtle last:border-0">
                   <span className="text-xs text-text-muted">{label}</span>
